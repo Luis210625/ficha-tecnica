@@ -12,7 +12,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem, HRFlowable
 )
@@ -55,6 +55,28 @@ def _construir_estilos():
         textColor=COR_PRIMARIA,
         spaceBefore=14,
         spaceAfter=6,
+        keepWithNext=True,  # evita que o título de uma seção fique "órfão" no fim da página
+    ))
+    # Estilo para células de tabela com texto que pode ser longo (nome de ingrediente,
+    # porção/rendimento, alergênicos etc.) — usar Paragraph com este estilo faz o texto
+    # QUEBRAR DENTRO da célula, em vez de vazar para a coluna vizinha.
+    estilos.add(ParagraphStyle(
+        name="CelulaTexto",
+        parent=estilos["Normal"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=11,
+        textColor=COR_TEXTO,
+    ))
+    estilos.add(ParagraphStyle(
+        name="CelulaTextoBold",
+        parent=estilos["CelulaTexto"],
+        fontName="Helvetica-Bold",
+    ))
+    estilos.add(ParagraphStyle(
+        name="CelulaTotalLabel",
+        parent=estilos["CelulaTextoBold"],
+        alignment=TA_RIGHT,
     ))
     estilos.add(ParagraphStyle(
         name="TextoNormal",
@@ -76,10 +98,12 @@ def _construir_estilos():
 
 def _tabela_info_geral(ficha: FichaTecnica, estilos) -> Table:
     """Tabela com as informações gerais do prato (porção, tempo, categoria etc.)."""
+    texto_alergenicos = ", ".join(ficha.alergenicos) if ficha.alergenicos else "Nenhum informado"
     dados = [
-        ["Categoria", ficha.categoria, "Porção/Rendimento", ficha.porcao_rendimento],
+        ["Categoria", Paragraph(ficha.categoria, estilos["CelulaTexto"]),
+         "Porção/Rendimento", Paragraph(ficha.porcao_rendimento, estilos["CelulaTexto"])],
         ["Tempo de preparo", f"{ficha.tempo_preparo_min} min", "Alergênicos",
-         ", ".join(ficha.alergenicos) if ficha.alergenicos else "Nenhum informado"],
+         Paragraph(texto_alergenicos, estilos["CelulaTexto"])],
     ]
     tabela = Table(dados, colWidths=[3.2 * cm, 5.3 * cm, 3.2 * cm, 5.3 * cm])
     tabela.setStyle(TableStyle([
@@ -106,13 +130,17 @@ def _tabela_ingredientes(ficha: FichaTecnica, estilos) -> Table:
     linhas = [cabecalho]
     for ing in ficha.ingredientes:
         linhas.append([
-            ing.nome,
+            Paragraph(ing.nome, estilos["CelulaTexto"]),  # quebra linha em vez de vazar a coluna
             f"{ing.quantidade:g}",
             ing.unidade,
             f"{ing.custo_unitario:.4f}",
             f"{ing.custo_total:.2f}",
         ])
-    linhas.append(["", "", "", "Total dos ingredientes:", f"R$ {ficha.custo_ingredientes:.2f}"])
+    linhas.append([
+        "", "", "",
+        Paragraph("Total dos ingredientes:", estilos["CelulaTotalLabel"]),
+        f"R$ {ficha.custo_ingredientes:.2f}",
+    ])
 
     tabela = Table(linhas, colWidths=[5.8 * cm, 2.6 * cm, 1.6 * cm, 3.5 * cm, 3.5 * cm], repeatRows=1)
     estilo = TableStyle([
@@ -144,7 +172,10 @@ def _tabela_custos(ficha: FichaTecnica, estilos) -> Table:
         ["Custo total de produção", f"R$ {ficha.custo_total_producao:.2f}"],
         ["Preço de venda sugerido", f"R$ {ficha.preco_venda_sugerido:.2f}"],
         ["Preço de venda praticado", f"R$ {ficha.preco_venda_final:.2f}"],
-        ["Margem de lucro", f"{ficha.margem_lucro_percentual:.1f}%  (R$ {ficha.margem_lucro_valor:.2f})"],
+        ["Margem de lucro", Paragraph(
+            f"{ficha.margem_lucro_percentual:.1f}% (R$ {ficha.margem_lucro_valor:.2f})",
+            estilos["CelulaTextoBold"],
+        )],
         ["Food Cost %", f"{ficha.food_cost_percentual:.1f}%"],
     ]
     tabela = Table(dados, colWidths=[8 * cm, 6 * cm])
