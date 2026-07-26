@@ -23,6 +23,26 @@ from models import Ingrediente, CATEGORIAS_PADRAO, UNIDADES_VALIDAS, ALERGENICOS
 from exportador_pdf import exportar_ficha_pdf
 from exportador_excel import exportar_todas_excel
 
+def verificar_senha():
+    """Pede uma senha antes de liberar o acesso ao app."""
+    def senha_correta():
+        if st.session_state["senha_digitada"] == st.secrets["senha_acesso"]:
+            st.session_state["autenticado"] = True
+            del st.session_state["senha_digitada"]
+        else:
+            st.session_state["autenticado"] = False
+
+    if st.session_state.get("autenticado", False):
+        return True
+
+    st.text_input("Senha de acesso", type="password", key="senha_digitada", on_change=senha_correta)
+    if st.session_state.get("autenticado") is False:
+        st.error("Senha incorreta.")
+    return False
+
+if not verificar_senha():
+    st.stop()
+
 st.set_page_config(page_title="Fichas Técnicas", page_icon="🍕", layout="wide")
 
 PASTA_EXPORTACAO = Path("exportados")
