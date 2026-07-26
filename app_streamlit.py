@@ -18,10 +18,67 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+from calculadora_massa_pizza import calcular_receita
 from gerenciador import GerenciadorFichas
 from models import Ingrediente, CATEGORIAS_PADRAO, UNIDADES_VALIDAS, ALERGENICOS_COMUNS
 from exportador_pdf import exportar_ficha_pdf
 from exportador_excel import exportar_todas_excel
+
+st.set_page_config(page_title="Fichas Técnicas de Pizzas", layout="wide")
+
+# Menu lateral
+st.sidebar.title("Menu")
+pagina = st.sidebar.radio("Escolha a página:",
+                          ["Fichas Técnicas", "🧊 Calculadora de Gelo"])
+
+if pagina == "🧊 Calculadora de Gelo":
+
+    st.title("🧊 Calculadora de Gelo para Massa de Pizza")
+    st.markdown("Ajuste automático conforme a **temperatura ambiente**")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        farinha = st.number_input("Quantidade de farinha (kg)",
+                                  min_value=0.5,
+                                  value=10.0,
+                                  step=0.5)
+
+    with col2:
+        temperatura = st.number_input("Temperatura ambiente (°C)",
+                                      min_value=5.0,
+                                      max_value=45.0,
+                                      value=22.0,
+                                      step=0.5)
+
+    if st.button("Calcular Receita", type="primary", use_container_width=True):
+
+        receita = calcular_receita(
+            farinha_kg=farinha,
+            temperatura_ambiente=temperatura
+        )
+
+        st.success("✅ Cálculo realizado!")
+
+        # Resultados bonitos
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Farinha", f"{receita.farinha_kg} kg")
+        c1.metric("Gelo", f"{receita.gelo_g} g")
+
+        c2.metric("Fermento", f"{receita.fermento_g} g")
+        c2.metric("Sal", f"{receita.sal_g} g")
+
+        c3.metric("Suco de Tomate", f"{receita.suco_tomate_ml} ml")
+        c3.metric("Água", f"{receita.agua_ml} ml")
+
+        # Explicação da temperatura
+        diff = receita.diferenca_temperatura
+        if diff > 0:
+            st.info(f"🌡️ **{diff}°C mais frio** → menos gelo, mais água")
+        elif diff < 0:
+            st.warning(f"🌡️ **{abs(diff)}°C mais quente** → mais gelo, menos água")
+        else:
+            st.success("🌡️ Temperatura ideal (22°C) → receita base")
 
 def verificar_senha():
     """Pede uma senha antes de liberar o acesso ao app."""
@@ -42,6 +99,12 @@ def verificar_senha():
 
 if not verificar_senha():
     st.stop()
+
+st.set_page_config(page_title="Fichas Técnicas", page_icon="🍕", layout="wide")
+
+PASTA_EXPORTACAO = Path("exportados")
+PASTA_EXPORTACAO.mkdir(exist_ok=True)
+
 
 st.set_page_config(page_title="Fichas Técnicas", page_icon="🍕", layout="wide")
 
